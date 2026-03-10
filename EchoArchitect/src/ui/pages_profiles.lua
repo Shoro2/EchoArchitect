@@ -28,22 +28,42 @@ for i=1,ROWS do
   local r=CreateFrame("Button",nil,list)
   r:SetHeight(24)
   r:SetPoint("TOPLEFT",list,"TOPLEFT",0,-(i-1)*26)
-  r:SetPoint("TOPRIGHT",list,"TOPRIGHT",0,-(i-1)*26)
+  r:SetPoint("TOPRIGHT",list,"TOPRIGHT",-20,-(i-1)*26)
   T:ApplyButton(r)
   local fs=T:Font(r,12,"")
   fs:SetPoint("LEFT",r,"LEFT",8,0)
   r._fs=fs
   rows[i]=r
 end
+local scroll=CreateFrame("ScrollFrame","EchoArchitectProfileListScroll",list,"FauxScrollFrameTemplate")
+scroll:SetPoint("TOPLEFT",list,"TOPRIGHT",-16,0)
+scroll:SetPoint("BOTTOMRIGHT",list,"BOTTOMRIGHT",0,0)
+scroll:SetScript("OnVerticalScroll",function(self,offset)
+  FauxScrollFrame_OnVerticalScroll(self,offset,26,function() refresh() end)
+end)
+local lsb=_G[scroll:GetName().."ScrollBar"]
+if lsb then T:ApplyScrollBar(lsb) end
+list:EnableMouseWheel(true)
+list:SetScript("OnMouseWheel",function(_,delta)
+  local sb=_G[scroll:GetName().."ScrollBar"]
+  if sb and sb.GetValue and sb.SetValue then
+    local v=tonumber(sb:GetValue() or 0) or 0
+    sb:SetValue(v-(delta*26*3))
+  end
+end)
 local selName=nil
+local _profileNames={}
 local function refresh()
   local db=EchoArchitect_CharDB
-  local names={}
-  for k in pairs(db.profiles or {}) do names[#names+1]=k end
-  table.sort(names)
+  _profileNames={}
+  for k in pairs(db.profiles or {}) do _profileNames[#_profileNames+1]=k end
+  table.sort(_profileNames)
+  FauxScrollFrame_Update(scroll,#_profileNames,ROWS,26)
+  local offset=FauxScrollFrame_GetOffset(scroll) or 0
   for i=1,ROWS do
     local r=rows[i]
-    local n=names[i]
+    local idx=offset+i
+    local n=_profileNames[idx]
     if n then
       r:Show()
       r._name=n
@@ -143,15 +163,15 @@ impBtn:SetPoint("LEFT",expBtn,"RIGHT",10,0)
 local ioScroll=CreateFrame("ScrollFrame","EchoArchitectProfileIOScroll",right,"UIPanelScrollFrameTemplate")
 ioScroll:SetPoint("TOPLEFT",expBtn,"BOTTOMLEFT",0,-10)
 ioScroll:SetPoint("BOTTOMRIGHT",right,"BOTTOMRIGHT",-10,10)
-local io=CreateFrame("EditBox","EchoArchitectProfileIOBox",ioScroll)
-io:SetMultiLine(true)
-io:SetFont(STANDARD_TEXT_FONT,12,"")
-io:SetAutoFocus(false)
-io:SetWidth(520)
-io:SetHeight(800)
-io:SetTextInsets(6,6,6,6)
-io:SetScript("OnEscapePressed",function() io:ClearFocus() end)
-io:SetScript("OnTextChanged",function(self)
+local ioBox=CreateFrame("EditBox","EchoArchitectProfileIOBox",ioScroll)
+ioBox:SetMultiLine(true)
+ioBox:SetFont(STANDARD_TEXT_FONT,12,"")
+ioBox:SetAutoFocus(false)
+ioBox:SetWidth(520)
+ioBox:SetHeight(800)
+ioBox:SetTextInsets(6,6,6,6)
+ioBox:SetScript("OnEscapePressed",function() ioBox:ClearFocus() end)
+ioBox:SetScript("OnTextChanged",function(self)
   local text=self:GetText() or ""
   local lines=1
   if text~="" then
@@ -164,12 +184,12 @@ io:SetScript("OnTextChanged",function(self)
   if h<800 then h=800 end
   self:SetHeight(h)
 end)
-ioScroll:SetScrollChild(io)
+ioScroll:SetScrollChild(ioBox)
 local bg=ioScroll:CreateTexture(nil,"BACKGROUND")
 bg:SetAllPoints(ioScroll)
 bg:SetTexture("Interface\\Buttons\\WHITE8X8")
 bg:SetVertexColor(0.03,0.04,0.06,0.95)
-Page._io=io
+Page._io=ioBox
 function Page:ShowDetails()
   if not selName then return end
 end

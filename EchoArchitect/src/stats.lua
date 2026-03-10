@@ -54,9 +54,11 @@ local function parseLine(line,dst)
   n=string.match(line,"(%d+)%s*%%.*haste") if n then add(dst,"HASTE",n) end
   n=string.match(line,"(%d+)%s*%%.*hit") if n then add(dst,"HIT",n) end
 end
+S._statCache={}
 function S:SpellStatContribution(spellId)
+  if not spellId or spellId==0 then return {} end
+  if self._statCache[spellId] then return self._statCache[spellId] end
   local out={}
-  if not spellId or spellId==0 then return out end
   scan:ClearLines()
   scan:SetSpellByID(spellId)
   for i=2,scan:NumLines() do
@@ -64,6 +66,7 @@ function S:SpellStatContribution(spellId)
     local t=fs and fs:GetText()
     parseLine(t,out)
   end
+  self._statCache[spellId]=out
   return out
 end
 function S:GetAshTreeSpellsAndRanks()

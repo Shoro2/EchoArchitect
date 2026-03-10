@@ -9,6 +9,7 @@
 src\serialize.lua
 src\data\perkdb.lua
 src\db.lua
+src\utils.lua
 src\profiles.lua
 src\logbook.lua
 src\priors.lua

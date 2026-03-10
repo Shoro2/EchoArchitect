@@ -260,7 +260,7 @@ for i=1,#defs do
   end)
   b._sel=b:CreateTexture(nil,"ARTWORK")
   b._sel:SetAllPoints(b)
-  b._sel:SetTexture("Interface\Buttons\WHITE8X8")
+  b._sel:SetTexture("Interface\\Buttons\\WHITE8X8")
   b._sel:SetVertexColor(0.10,0.35,0.55,0.35)
   b._sel:Hide()
   btns[d.id]=b
@@ -314,9 +314,9 @@ text:SetPoint("TOPRIGHT",content,"TOPRIGHT",-26,-6)
 text:SetJustifyH("LEFT")
 text:SetJustifyV("TOP")
 
-local warnBg=CreateTexture and content:CreateTexture(nil,"BACKGROUND") or nil
+local warnBg=content:CreateTexture(nil,"BACKGROUND")
 if warnBg then
-  warnBg:SetTexture("Interface\Buttons\WHITE8X8")
+  warnBg:SetTexture("Interface\\Buttons\\WHITE8X8")
   warnBg:SetVertexColor(0.45,0.12,0.12,0.45)
   warnBg:Hide()
 end

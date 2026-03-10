@@ -152,32 +152,13 @@ list:SetScript("OnMouseWheel",function(_,delta) wheel(delta) end)
 scroll:SetScript("OnMouseWheel",function(_,delta) wheel(delta) end)
 local rows={}
 local ROWS=17
-local function QualityName(q)
-  if q==0 then return "Common" end
-  if q==1 then return "Uncommon" end
-  if q==2 then return "Rare" end
-  if q==3 then return "Epic" end
-  if q==4 then return "Legendary" end
-  return "Unknown"
-end
+local QualityName=EA.Utils.QualityName
 local function ucfirst(s)
   if not s then return "" end
   return string.upper(string.sub(s,1,1))..string.lower(string.sub(s,2))
 end
 local bucketTooltip
-local function ShowSpellTooltip(owner,spellId)
-  if not GameTooltip or not spellId or spellId==0 then return end
-  GameTooltip:SetOwner(owner,"ANCHOR_RIGHT")
-  if GameTooltip.SetSpellByID then
-    GameTooltip:SetSpellByID(spellId)
-  elseif GameTooltip.SetHyperlink then
-    GameTooltip:SetHyperlink("spell:"..tostring(spellId))
-  elseif GameTooltip.SetText then
-    local name=GetSpellInfo and GetSpellInfo(spellId)
-    if name then GameTooltip:SetText(name) end
-  end
-  GameTooltip:Show()
-end
+local ShowSpellTooltip=EA.Utils.ShowSpellTooltip
 for i=1,ROWS do
   local r=CreateFrame("Frame",nil,list)
   r:SetHeight(24)
@@ -232,6 +213,16 @@ for i=1,ROWS do
   r._wBox=wBox
   r._bucketBtn=bucketBtn
   r._blk=blk
+  W:AttachSpellTooltip(nameBtn,function() return r._entry and r._entry.spellId or 0 end)
+  W:BindCommit(wBox,function(ed)
+    local p=EA.Profiles:GetActiveProfile()
+    local v=tonumber(ed:GetText() or "")
+    if v and r._key then p.weights[r._key]=v end
+  end)
+  wBox:SetScript("OnTabPressed",function(self)
+    local dir=IsShiftKeyDown() and -1 or 1
+    Page:FocusWeightIndex(self._eaIdx,dir)
+  end)
   rows[i]=r
 end
 local inspectorFrame=CreateFrame("Frame",nil,right)
@@ -495,11 +486,7 @@ bList:SetScript("OnMouseWheel",function(_,delta) bwheel(delta) end)
 bScroll:SetScript("OnMouseWheel",function(_,delta) bwheel(delta) end)
 local bRows={}
 local BROWS=8
-local function parseKey(k)
-  local sid=tonumber(string.match(k,"^(%d+):") or 0) or 0
-  local q=tonumber(string.match(k,":(%d+)$") or 0) or 0
-  return sid,q
-end
+local parseKey=EA.Utils.ParseKey
 bucketTooltip=function(owner,bid,anchor)
   if not GameTooltip or not bid then return end
   local pr=EA.Profiles:GetActiveProfile()
@@ -560,6 +547,20 @@ for i=1,BROWS do
   r._nameBtn=nameBtn
   r._stacks=sBox
   r._del=del
+  W:BindCommit(sBox,function(ed)
+    local v=tonumber(ed:GetText() or 0)
+    if v==nil then return end
+    if v<0 then v=0 end
+    if v>80 then v=80 end
+    local pr=EA.Profiles:GetActiveProfile()
+    if pr and pr.buckets and r._bid and pr.buckets[r._bid] then
+      pr.buckets[r._bid].maxStacks=v
+    end
+  end)
+  sBox:SetScript("OnTabPressed",function(self)
+    local dir=IsShiftKeyDown() and -1 or 1
+    Page:FocusBucketStackIndex(self._eaIdx,dir)
+  end)
   bRows[i]=r
 end
 Page._bucketSelName=selName
@@ -965,20 +966,7 @@ function Page:UpdateBucketList(rebuild)
       r._stacks._eaSetting=true
       r._stacks:SetText(tostring(e.stacks or 0))
       r._stacks._eaSetting=false
-      W:BindCommit(r._stacks,function(ed)
-        local v=tonumber(ed:GetText() or 0)
-        if v==nil then return end
-        if v<0 then v=0 end
-        if v>80 then v=80 end
-        if pr.buckets and pr.buckets[e.id] then
-          pr.buckets[e.id].maxStacks=v
-        end
-      end)
       r._stacks._eaIdx=idx
-      r._stacks:SetScript("OnTabPressed",function(self)
-        local dir=IsShiftKeyDown() and -1 or 1
-        Page:FocusBucketStackIndex(self._eaIdx,dir)
-      end)
     else
       r._bid=nil
       r:Hide()
@@ -1143,17 +1131,7 @@ function Page:UpdateList(rebuild)
         r._icon:SetVertexColor(0,0,0,0)
       end
       r._nameBtn:SetScript("OnClick",function() setSelected(ent,r) end)
-            W:AttachSpellTooltip(r._nameBtn,function() return ent.spellId end)
-      W:BindCommit(r._wBox,function(ed)
-        local p=EA.Profiles:GetActiveProfile()
-        local v=tonumber(ed:GetText() or "")
-        if v then p.weights[r._key]=v end
-      end)
       r._wBox._eaIdx=idx
-      r._wBox:SetScript("OnTabPressed",function(self)
-        local dir=IsShiftKeyDown() and -1 or 1
-        Page:FocusWeightIndex(self._eaIdx,dir)
-      end)
       self:UpdateRow(r)
     else
       if r and r._bg then r._bg:SetVertexColor(0,0,0,0) end

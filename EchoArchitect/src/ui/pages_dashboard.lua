@@ -22,13 +22,7 @@ local function getDashDB()
   return db.ui.dashboard
 end
 
-local function solid(parent,layer,r,g,b,a)
-  local tx=parent:CreateTexture(nil,layer)
-  tx:SetTexture("Interface\\Buttons\\WHITE8X8")
-  tx:SetVertexColor(r,g,b,a)
-  tx:SetAllPoints(parent)
-  return tx
-end
+local function solid(parent,layer,r,g,b,a) return T:Solid(parent,layer,r,g,b,a) end
 
 local function svcSelect(spellId)
   if not spellId or spellId==0 then return end
@@ -352,12 +346,7 @@ local function fmtTime(s)
   return string.format("%d:%02d",m,r)
 end
 
-local function reasonText(r)
-  if r=="onlyBlacklisted" then return "Paused: Blacklisted / Negative Only" end
-  if r=="multipleAbove" then return "Paused: Threshold Met" end
-  if r=="sessionComplete" then return "Paused: Session Complete" end
-  return "Paused"
-end
+local reasonText=EA.Utils.ReasonText
 
 function Page:_EA_RefreshLayout()
   local w=intro:GetWidth()
@@ -570,7 +559,6 @@ Page._eaAcc=0
 Page:SetScript("OnShow",function(self)
   self:_EA_RefreshLayout()
   local d=getDashDB() or {}
-  if d.scale==nil then d.scale=nil end
   update()
   self._eaAcc=0
   self:SetScript("OnUpdate",function(_,el)

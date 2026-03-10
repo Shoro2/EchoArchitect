@@ -21,6 +21,7 @@ local function solid(parent,layer,r,g,b,a)
   tx:SetAllPoints(parent)
   return tx
 end
+function T:Solid(parent,layer,r,g,b,a) return solid(parent,layer,r,g,b,a) end
 local function border(parent,layer,r,g,b,a,th)
   th=th or 1
   local t=parent:CreateTexture(nil,layer)

@@ -432,13 +432,7 @@ scroll:SetScript("OnMouseWheel",function(_,delta) wheel(delta) end)
 
  local ROWS=16
 
-local function solid(parent,layer,r,g,b,a)
-  local tx=parent:CreateTexture(nil,layer)
-  tx:SetTexture("Interface\\Buttons\\WHITE8X8")
-  tx:SetVertexColor(r,g,b,a)
-  tx:SetAllPoints(parent)
-  return tx
-end
+local function solid(parent,layer,r,g,b,a) return T:Solid(parent,layer,r,g,b,a) end
 
 local function makeRow(i)
   local row=CreateFrame("Button",nil,list)

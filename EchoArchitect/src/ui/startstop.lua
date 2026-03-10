@@ -14,20 +14,7 @@ end
 local function pr()
   return EA.Profiles and EA.Profiles:GetActiveProfile() or nil
 end
-local function getRunData()
-  if ProjectEbonhold and ProjectEbonhold.PlayerRunService then
-    if ProjectEbonhold.PlayerRunService.GetCurrentData then
-      local ok,res=pcall(ProjectEbonhold.PlayerRunService.GetCurrentData)
-      if ok and type(res)=="table" then return res end
-    end
-    if ProjectEbonhold.PlayerRunService.Get then
-      local ok,res=pcall(ProjectEbonhold.PlayerRunService.Get)
-      if ok and type(res)=="table" then return res end
-    end
-  end
-  if type(_G.EbonholdPlayerRunData)=="table" then return _G.EbonholdPlayerRunData end
-  return {}
-end
+local getRunData=EA.Utils.GetRunData
 local function echoesRemaining()
   local lvl=UnitLevel and UnitLevel("player") or 0
   local offered=math.min(80,math.max(0,(tonumber(lvl) or 0)-1))
@@ -38,45 +25,9 @@ local function echoesRemaining()
   if rem<0 then rem=0 end
   return rem
 end
-local function rerollsRemaining(p)
-  local rd=getRunData()
-  local remField=tonumber(rd.remainingRerolls or rd.rerollsRemaining or rd.rerollsLeft or rd.rerollCharges or 0) or 0
-  if remField>0 then return remField end
-  local used=tonumber(rd.usedRerolls or rd.rerollsUsed or 0) or 0
-  local total=tonumber(rd.totalRerolls or rd.rerollsTotal or 0) or 0
-  if total>0 then
-    local rem=total-used
-    if rem<0 then rem=0 end
-    return rem
-  end
-  local maxRow=p and p.automation and tonumber(p.automation.maxRerollsPerOffer) or nil
-  if not maxRow then maxRow=10 end
-  local thisOffer=EA.Engine and EA.Engine.state and tonumber(EA.Engine.state.rerollsThisOffer or 0) or 0
-  local rem=maxRow-thisOffer
-  if rem<0 then rem=0 end
-  return rem
-end
-local function banishesRemaining()
-  if not (ProjectEbonhold and ProjectEbonhold.Constants and ProjectEbonhold.Constants.ENABLE_BANISH_SYSTEM) then return 0 end
-  local rd=getRunData()
-  local remField=tonumber(rd.remainingBanishes or rd.banishesRemaining or rd.banishesLeft or rd.banishCharges or 0) or 0
-  if remField>0 then return remField end
-  local used=tonumber(rd.usedBanishes or rd.banishesUsed or 0) or 0
-  local total=tonumber(rd.totalBanishes or rd.banishesTotal or 0) or 0
-  if total>0 then
-    local rem=total-used
-    if rem<0 then rem=0 end
-    return rem
-  end
-  return 0
-end
-
-local function reasonText(r)
-  if r=="onlyBlacklisted" then return "Paused: Blacklisted / Negative Only" end
-  if r=="multipleAbove" then return "Paused: Threshold Met" end
-  if r=="sessionComplete" then return "Paused: Session Complete" end
-  return "Paused"
-end
+local rerollsRemaining=EA.Utils.RerollsRemaining
+local banishesRemaining=EA.Utils.BanishesRemaining
+local reasonText=EA.Utils.ReasonText
 function SS:Create()
   if self.frame then return self.frame end
   local f=CreateFrame("Frame","EchoArchitectStartStopFrame",UIParent)

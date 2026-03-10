@@ -15,32 +15,18 @@ end
 local function chat(msg)
   if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then DEFAULT_CHAT_FRAME:AddMessage(msg) end
 end
-local function getRunData()
-  if ProjectEbonhold and ProjectEbonhold.PlayerRunService and ProjectEbonhold.PlayerRunService.GetCurrentData then
-    local ok,res=pcall(ProjectEbonhold.PlayerRunService.GetCurrentData)
-    if ok and type(res)=="table" then return res end
-  end
-  if type(_G.EbonholdPlayerRunData)=="table" then return _G.EbonholdPlayerRunData end
-  return {}
-end
-local function rerollsRemaining(pr)
-  local rd=getRunData()
-  local remField=tonumber(rd.remainingRerolls or rd.rerollsRemaining or rd.rerollsLeft or rd.rerollCharges or 0) or 0
-  if remField>0 then return remField,remField,0 end
-  local used=tonumber(rd.usedRerolls or rd.rerollsUsed or 0) or 0
-  local total=tonumber(rd.totalRerolls or rd.rerollsTotal or 0) or 0
-  if total>0 then return math.max(0,total-used),total,used end
-  local maxRow=pr and pr.automation and tonumber(pr.automation.maxRerollsPerOffer) or nil
-  if not maxRow then maxRow=10 end
-  local rem=math.max(0,(tonumber(maxRow) or 10)-(tonumber(E.state.rerollsThisOffer) or 0))
-  return rem,tonumber(maxRow) or 10,tonumber(E.state.rerollsThisOffer) or 0
-end
-local function banishesRemaining()
-  if not (ProjectEbonhold and ProjectEbonhold.Constants and ProjectEbonhold.Constants.ENABLE_BANISH_SYSTEM) then return 0 end
-  local rd=getRunData()
-  return tonumber(rd.remainingBanishes or 0) or 0
-end
+local getRunData=EA.Utils.GetRunData
+local rerollsRemaining=EA.Utils.RerollsRemaining
+local banishesRemaining=EA.Utils.BanishesRemaining
+local _ownedCache={}
+local _ownedCacheTick=0
 local function countOwnedStacks(spellId)
+  local t=now()
+  if t-_ownedCacheTick>0.12 then
+    _ownedCache={}
+    _ownedCacheTick=t
+  end
+  if _ownedCache[spellId] then return _ownedCache[spellId][1],_ownedCache[spellId][2] end
   local grantedN,grantedMax=0,nil
   if ProjectEbonhold and ProjectEbonhold.PerkService and ProjectEbonhold.PerkService.GetGrantedPerks then
     local ok,granted=pcall(ProjectEbonhold.PerkService.GetGrantedPerks)
@@ -71,6 +57,7 @@ local function countOwnedStacks(spellId)
   end
   local maxStack=grantedMax
   if lockedMax then maxStack=maxStack and math.max(maxStack,lockedMax) or lockedMax end
+  _ownedCache[spellId]={grantedN+lockedN,maxStack}
   return (grantedN+lockedN),maxStack
 end
 local function normalizeChoice(raw)
