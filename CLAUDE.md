@@ -17,6 +17,7 @@ EchoArchitect/
     ├── serialize.lua           # Custom serializer/deserializer (EA1: format)
     ├── data/perkdb.lua         # Static perk database (EchoArchitect_PerkDB)
     ├── db.lua                  # DB utilities: class masks, perk metadata, spell cache
+    ├── utils.lua               # Shared utility functions (EA.Utils)
     ├── profiles.lua            # Profile system (per-character SavedVariables)
     ├── logbook.lua             # Global logbook (cross-character SavedVariables)
     ├── priors.lua              # Static prior frequency data for echo appearances
@@ -90,14 +91,15 @@ Files load in `.toc` order. Dependencies flow top-down:
 1. `serialize.lua` — No dependencies
 2. `data/perkdb.lua` — Sets `EchoArchitect_PerkDB` global
 3. `db.lua` — Reads `EchoArchitect_PerkDB`
-4. `profiles.lua` — Uses `EA.DB` (not via upvalue, lazy access)
-5. `logbook.lua` — Uses `EA.DB`
-6. `priors.lua` — Static data, no dependencies
-7. `run.lua` — Uses `EA.Logbook`
-8. `stats.lua` — Uses `EA.Profiles`, Ebonhold APIs
-9. `engine.lua` — Uses everything above
-10. `ui/*` — Uses all core modules
-11. `init.lua` — Wires everything together on `ADDON_LOADED`
+4. `utils.lua` — Shared utilities (`EA.Utils`); uses `EA.Engine` lazily
+5. `profiles.lua` — Uses `EA.DB` (not via upvalue, lazy access)
+6. `logbook.lua` — Uses `EA.DB`
+7. `priors.lua` — Static data, no dependencies
+8. `run.lua` — Uses `EA.Logbook`
+9. `stats.lua` — Uses `EA.Profiles`, Ebonhold APIs
+10. `engine.lua` — Uses everything above; aliases `EA.Utils.*`
+11. `ui/*` — Uses all core modules + `EA.Utils`
+12. `init.lua` — Wires everything together on `ADDON_LOADED`
 
 ### Testing Considerations
 - No automated test framework; testing is done in-game
@@ -110,41 +112,44 @@ Files load in `.toc` order. Dependencies flow top-down:
 - pcall wrapping for Ebonhold API calls (they may not exist)
 - `CreateFrame("Frame")` with `OnUpdate` scripts for timers/tickers
 
-## Known Optimization Opportunities
+## Optimization Status
 
-### Performance
-1. **Redundant `tonumber(x or 0) or 0` chains** — ~275 occurrences. Many are on values already known to be numbers
-2. **Duplicate `getRunData()` function** — Defined identically in both `engine.lua` and `startstop.lua`; should be shared via `EA.Engine` or a utility
-3. **Duplicate `rerollsRemaining()` / `banishesRemaining()`** — Also duplicated between `engine.lua` and `startstop.lua`
-4. **`countOwnedStacks()` called per-choice per-tick** — Could cache results for the duration of a single tick
-5. **`bucketOverCap()` iterates all bucket echoKeys** calling `countOwnedStacks()` for each — O(n*m) per decision
-6. **`DB:IterPerks()` rebuilds full sorted list** every time it's called (used in logbook seeding, library page)
-7. **`Logbook:SeedFromDB()` iterates all perks on init** — could be deferred or lazy
-8. **Tooltip scanning in `Stats:SpellStatContribution()`** — No caching, re-scans on every `Compute()` call
-9. **Engine ticker at 0.12s** — Calls `getCurrentOfferEx()` + `normalizeChoice()` + `GetSpellInfo()` every tick even when idle
+### Applied Fixes (v3.6.2 optimization pass)
 
-### Code Quality
-10. **Globals**: `EchoArchitect`, `EchoArchitect_PerkDB`, `EchoArchitect_Logbook`, `EchoArchitect_CharDB` are intentional (SavedVariables). No accidental global leaks detected
-11. **`deepMerge` is called on every `GetActiveProfile()`** — Runs on every engine tick via profile access
-12. **History entries accumulate unboundedly** in `run.history` — No pruning mechanism; long sessions could grow large
-13. **`_v` migration in `GetActiveProfile()`** runs every call instead of once
-14. **`explainDecision()` builds large diagnostic tables** even when not displayed
-15. **Serializer** uses string concatenation in a loop (`serPretty`); could use `table.concat` more aggressively
+1. ~~Redundant `tonumber(x or 0) or 0` chains~~ — Low priority; ~275 occurrences but most are at system boundaries. **Not fixed** (minimal risk/benefit ratio).
+2. **FIXED** — Duplicate `getRunData()`, `rerollsRemaining()`, `banishesRemaining()` extracted to `EA.Utils` in `src/utils.lua`. Engine and startstop now alias from the shared module.
+3. **FIXED** — See #2.
+4. **FIXED** — `countOwnedStacks()` now has a tick-level cache (0.12s TTL) that prevents redundant API calls within the same tick.
+5. **FIXED** — `bucketOverCap()` benefits from #4's cache; `countOwnedStacks()` results are reused across calls in the same tick.
+6. **FIXED** — `DB:IterPerks()` results are now cached per `showAll` flag, invalidated on `SPELLS_CHANGED` event.
+7. ~~`Logbook:SeedFromDB()` iterates all perks on init~~ — Runs once at load; now benefits from #6's cached `IterPerks()`. **Acceptable**.
+8. **FIXED** — `Stats:SpellStatContribution()` now caches tooltip scan results per `spellId` in `S._statCache`.
+9. ~~Engine ticker micro-optimizations~~ — **Not fixed** (negligible impact; ticker is already well-structured).
+10. **N/A** — Globals are intentional SavedVariables. No accidental leaks.
+11. **FIXED** — `GetActiveProfile()` now skips `deepMerge` and migration after the first call via `_eaMerged` flag on the profile table.
+12. **FIXED** — `run.history` is now pruned to a maximum of 500 entries (keeps the most recent).
+13. **FIXED** — See #11. `_v` migration only runs once (guarded by `_eaMerged`).
+14. ~~`explainDecision()` builds large tables~~ — **Not fixed** (only runs on action events, not every tick; overhead is negligible).
+15. ~~Serializer string concatenation~~ — **Not fixed** (minimal impact for addon use case).
+16. **FIXED** — Duplicated utility functions extracted:
+    - `QualityName()`, `ShowSpellTooltip()`, `ReasonText()`, `ParseKey()`/`keyParts()`, `GetRunData()`, `RerollsRemaining()`, `BanishesRemaining()` → `EA.Utils` module (`src/utils.lua`)
+    - `solid()` → exposed as `T:Solid()` in `theme.lua`; dashboard and current_echoes now use it
+17. **FIXED** — `W:BindCommit` and `W:AttachSpellTooltip` are now bound once at row creation in `pages_library.lua`. Callbacks reference mutable row data instead of closures.
+18. **FIXED** — Unescaped backslashes corrected to `"Interface\\Buttons\\WHITE8X8"` in `pages_settings.lua` and `pages_help.lua`.
+19. **FIXED** — Dead code in `pages_help.lua` line 317: `CreateTexture` global check removed; now calls `content:CreateTexture()` directly.
+20. **FIXED** — `pages_profiles.lua` now uses a `FauxScrollFrame` for the profile list. Profiles beyond 14 are scrollable.
+21. ~~`enforcePageAttach()` race condition workaround~~ — **Not fixed** (structural change to page registration system; risk outweighs benefit).
+22. **FIXED** — No-op `if d.scale==nil then d.scale=nil end` removed from `pages_dashboard.lua`.
+23. ~~Nil-safety gaps for `p.automation`~~ — **Not fixed** (already properly guarded with `and` chains; `_eaMerged` ensures `automation` table exists after first access).
+24. **FIXED** — Variable shadowing in `pages_logbook.lua` line 466: outer `s` renamed to `ss`, removed unused `k` and `asc` variables. Inner sort comparator now uses `ss.sortKey`/`ss.sortAsc`.
 
-### UI Code (src/ui/)
-16. **Heavily duplicated utility functions across UI pages:**
-    - `QualityName()` — in pages_library, pages_history, pages_logbook, pages_current_echoes
-    - `ShowSpellTooltip()` — in pages_library and pages_history
-    - `vline()` / `_UpdateSeps()` — in pages_library, pages_history, pages_logbook
-    - `solid()` — in theme.lua and pages_dashboard
-    - `reasonText()` — in startstop.lua and pages_dashboard
-    - `parseKey()` / `keyParts()` — in pages_library and pages_logbook
-    These should be extracted into `widgets.lua` or a shared `ui/utils.lua`
-17. **`W:BindCommit` and `W:AttachSpellTooltip` re-bound on every list refresh** — Scripts are re-attached to rows each time `UpdateList()` runs instead of once at row creation. Creates garbage and wastes cycles (pages_library.lua lines ~1146-1147)
-18. **Unescaped backslashes in texture paths** — `"Interface\Buttons\WHITE8X8"` in pages_settings.lua and pages_help.lua. Should be `"Interface\\Buttons\\WHITE8X8"`. Works by accident (Lua passes unknown escapes through) but is technically incorrect
-19. **pages_help.lua line ~317: dead code** — `local warnBg=CreateTexture and content:CreateTexture(...)` checks for `CreateTexture` as a global, but it's a frame method, so this is always nil. The warning background never renders
-20. **pages_profiles.lua: no scroll on profile list** — Hardcoded `ROWS=14`; profiles beyond 14 are invisible
-21. **pages_current_echoes.lua: race condition workaround** — Uses `enforcePageAttach()` + hidden parent frame to handle load-order issues with page registration. Suggests the page registration system in window.lua could be more robust
-22. **pages_dashboard.lua line ~573: no-op** — `if d.scale==nil then d.scale=nil end`
-23. **Nil-safety gaps** — Several UI files access `p.automation.showStartStopButton` etc. without guarding `p.automation` being nil. A malformed profile would cause errors
-24. **pages_logbook.lua line ~466: variable shadowing bug** — `local s=sortState()` shadows earlier `s` inside the sort comparator closure
+**Additional fix:** Variable `io` in `pages_profiles.lua` shadowed Lua's built-in `io` library. Renamed to `ioBox`.
+
+### Remaining Opportunities
+
+- **#1**: Bulk `tonumber(x or 0) or 0` cleanup — Low priority, many are at system boundaries
+- **#7**: Lazy `Logbook:SeedFromDB()` — Acceptable as-is with cached `IterPerks`
+- **#9**: Engine ticker idle optimization — Negligible impact
+- **#14**: Lazy `explainDecision()` — Only runs on actions, not ticks
+- **#15**: Serializer `table.concat` — Minimal impact
+- **#21**: Page registration system refactor — Structural change, risk outweighs benefit
