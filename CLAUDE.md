@@ -130,3 +130,21 @@ Files load in `.toc` order. Dependencies flow top-down:
 13. **`_v` migration in `GetActiveProfile()`** runs every call instead of once
 14. **`explainDecision()` builds large diagnostic tables** even when not displayed
 15. **Serializer** uses string concatenation in a loop (`serPretty`); could use `table.concat` more aggressively
+
+### UI Code (src/ui/)
+16. **Heavily duplicated utility functions across UI pages:**
+    - `QualityName()` — in pages_library, pages_history, pages_logbook, pages_current_echoes
+    - `ShowSpellTooltip()` — in pages_library and pages_history
+    - `vline()` / `_UpdateSeps()` — in pages_library, pages_history, pages_logbook
+    - `solid()` — in theme.lua and pages_dashboard
+    - `reasonText()` — in startstop.lua and pages_dashboard
+    - `parseKey()` / `keyParts()` — in pages_library and pages_logbook
+    These should be extracted into `widgets.lua` or a shared `ui/utils.lua`
+17. **`W:BindCommit` and `W:AttachSpellTooltip` re-bound on every list refresh** — Scripts are re-attached to rows each time `UpdateList()` runs instead of once at row creation. Creates garbage and wastes cycles (pages_library.lua lines ~1146-1147)
+18. **Unescaped backslashes in texture paths** — `"Interface\Buttons\WHITE8X8"` in pages_settings.lua and pages_help.lua. Should be `"Interface\\Buttons\\WHITE8X8"`. Works by accident (Lua passes unknown escapes through) but is technically incorrect
+19. **pages_help.lua line ~317: dead code** — `local warnBg=CreateTexture and content:CreateTexture(...)` checks for `CreateTexture` as a global, but it's a frame method, so this is always nil. The warning background never renders
+20. **pages_profiles.lua: no scroll on profile list** — Hardcoded `ROWS=14`; profiles beyond 14 are invisible
+21. **pages_current_echoes.lua: race condition workaround** — Uses `enforcePageAttach()` + hidden parent frame to handle load-order issues with page registration. Suggests the page registration system in window.lua could be more robust
+22. **pages_dashboard.lua line ~573: no-op** — `if d.scale==nil then d.scale=nil end`
+23. **Nil-safety gaps** — Several UI files access `p.automation.showStartStopButton` etc. without guarding `p.automation` being nil. A malformed profile would cause errors
+24. **pages_logbook.lua line ~466: variable shadowing bug** — `local s=sortState()` shadows earlier `s` inside the sort comparator closure
