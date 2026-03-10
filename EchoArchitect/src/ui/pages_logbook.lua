@@ -22,14 +22,7 @@ right:SetPoint("TOPLEFT",left,"TOPRIGHT",10,0)
 right:SetPoint("TOPRIGHT",Page,"TOPRIGHT",0,0)
 right:SetPoint("BOTTOMRIGHT",Page,"BOTTOMRIGHT",0,0)
 T:ApplyPanel(right,"panel")
-local function qLabel(q)
-  if q==0 then return "Common" end
-  if q==1 then return "Uncommon" end
-  if q==2 then return "Rare" end
-  if q==3 then return "Epic" end
-  if q==4 then return "Legendary" end
-  return "Unknown"
-end
+local qLabel=EA.Utils.QualityName
 local function pct(n,d)
   n=tonumber(n or 0) or 0
   d=tonumber(d or 0) or 0
@@ -47,15 +40,7 @@ local function fmtTime(sec)
   return string.format("%ds",s)
 end
 
-local function QualityName(q)
-  q=tonumber(q or 0) or 0
-  if q==0 then return "Common" end
-  if q==1 then return "Uncommon" end
-  if q==2 then return "Rare" end
-  if q==3 then return "Epic" end
-  if q==4 then return "Legendary" end
-  return "Unknown"
-end
+local QualityName=EA.Utils.QualityName
 
 local function sortState()
   local cdb=EchoArchitect_CharDB
@@ -425,11 +410,7 @@ for i=1,ROWS do
   r._pick=pick
   rows[i]=r
 end
-local function keyParts(key)
-  local sid=tonumber(string.match(key,"^(%d+):") or 0) or 0
-  local q=tonumber(string.match(key,":(%d+)$") or 0) or 0
-  return sid,q
-end
+local keyParts=EA.Utils.ParseKey
 local function getList()
   local db=Log:GetDB()
   local out={}
@@ -463,9 +444,7 @@ local function getList()
       }
     end
   end
-  local s=sortState()
-  local k=s.sortKey
-  local asc=s.sortAsc
+  local ss=sortState()
   table.sort(out,function(a,b)
   if a==b then return false end
   if not a then return false end
@@ -478,8 +457,8 @@ local function getList()
     if isAsc then return av<bv end
     return av>bv
   end
-  local k=s.sortKey
-  local isAsc=s.sortAsc
+  local k=ss.sortKey
+  local isAsc=ss.sortAsc
   local av,bv,res
   if k=="quality" then
     av=tonumber(a.quality or 0) or 0

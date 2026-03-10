@@ -102,6 +102,11 @@ function R:Record(entry)
   end
   run.history=run.history or {}
   run.history[#run.history+1]=entry
+  if #run.history>500 then
+    local pruned={}
+    for j=#run.history-499,#run.history do pruned[#pruned+1]=run.history[j] end
+    run.history=pruned
+  end
 end
 function R:MarkCompletedIfNeeded()
   local run=self:GetRun()

@@ -33,15 +33,7 @@ local hdr=W:Label(left,"",16)
 hdr:SetPoint("TOPLEFT",left,"TOPLEFT",10,-10)
 hdr:Hide()
 
-local function QualityName(q)
-  q=tonumber(q or 0) or 0
-  if q==0 then return "Common" end
-  if q==1 then return "Uncommon" end
-  if q==2 then return "Rare" end
-  if q==3 then return "Epic" end
-  if q==4 then return "Legendary" end
-  return "Unknown"
-end
+local QualityName=EA.Utils.QualityName
 
 local searchLabel=W:Label(left,"Search",12)
 searchLabel:SetPoint("TOPLEFT",left,"TOPLEFT",10,-10)
@@ -165,19 +157,7 @@ end
 list:SetScript("OnMouseWheel",function(_,delta) wheel(delta) end)
 scroll:SetScript("OnMouseWheel",function(_,delta) wheel(delta) end)
 
-local function ShowSpellTooltip(owner,spellId)
-  if not GameTooltip or not spellId or spellId==0 then return end
-  GameTooltip:SetOwner(owner,"ANCHOR_RIGHT")
-  if GameTooltip.SetSpellByID then
-    GameTooltip:SetSpellByID(spellId)
-  elseif GameTooltip.SetHyperlink then
-    GameTooltip:SetHyperlink("spell:"..tostring(spellId))
-  elseif GameTooltip.SetText then
-    local name=GetSpellInfo and GetSpellInfo(spellId)
-    if name then GameTooltip:SetText(name) end
-  end
-  GameTooltip:Show()
-end
+local ShowSpellTooltip=EA.Utils.ShowSpellTooltip
 
 local ROWS=16
 local rows={}

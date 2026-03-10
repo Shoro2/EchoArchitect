@@ -138,23 +138,26 @@ function P:GetActiveProfile()
   if not name then return nil end
   local pr=db.profiles and db.profiles[name]
   if type(pr)~="table" then return nil end
-  deepMerge(pr,self.profileDefaults)
-  if (tonumber(pr._v) or 1)<2 then
-    pr._v=2
-    local op=tonumber(pr.scoring and pr.scoring.ownedPenalty or 0) or 0
-    if op>0 and op<=1 then
-      pr.scoring.ownedPenalty=math.floor(op*100+0.5)
+  if not pr._eaMerged then
+    deepMerge(pr,self.profileDefaults)
+    if (tonumber(pr._v) or 1)<2 then
+      pr._v=2
+      local op=tonumber(pr.scoring and pr.scoring.ownedPenalty or 0) or 0
+      if op>0 and op<=1 then
+        pr.scoring.ownedPenalty=math.floor(op*100+0.5)
+      end
+      pr.scoring.qualityBonus={[0]=0,[1]=0,[2]=0,[3]=0,[4]=0}
+      pr.scoring.qualityMultiplier={[0]=1,[1]=1,[2]=1,[3]=1,[4]=1}
+      if pr.automation and pr.automation.safetyLock~=nil then pr.automation.safetyLock=nil end
     end
-    pr.scoring.qualityBonus={[0]=0,[1]=0,[2]=0,[3]=0,[4]=0}
-    pr.scoring.qualityMultiplier={[0]=1,[1]=1,[2]=1,[3]=1,[4]=1}
-    if pr.automation and pr.automation.safetyLock~=nil then pr.automation.safetyLock=nil end
-  end
-  ensureDefaultBucket(pr)
-  if pr and pr.automation then
-    if pr.automation.showStartStopRemainingRerolls==nil and pr.automation.showStartStopRemainingPicks~=nil then
-      pr.automation.showStartStopRemainingRerolls=pr.automation.showStartStopRemainingPicks
+    ensureDefaultBucket(pr)
+    if pr.automation then
+      if pr.automation.showStartStopRemainingRerolls==nil and pr.automation.showStartStopRemainingPicks~=nil then
+        pr.automation.showStartStopRemainingRerolls=pr.automation.showStartStopRemainingPicks
+      end
+      pr.automation.showStartStopRemainingPicks=nil
     end
-    pr.automation.showStartStopRemainingPicks=nil
+    pr._eaMerged=true
   end
   return pr
 end

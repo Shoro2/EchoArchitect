@@ -117,7 +117,10 @@ function DB:WarmSpellCache()
     if rs>0 then GetSpellInfo(rs) end
   end
 end
+DB._iterCache={}
 function DB:IterPerks(showAll)
+  local key=showAll and "all" or "filtered"
+  if self._iterCache[key] then return self._iterCache[key] end
   local out={}
   for sid,meta in pairs(perkdb) do
     local ok=true
@@ -144,6 +147,7 @@ function DB:IterPerks(showAll)
     if a.quality~=b.quality then return a.quality>b.quality end
     return a.name<b.name
   end)
+  self._iterCache[key]=out
   return out
 end
 function DB:DecodeClassMask(mask)
@@ -179,4 +183,5 @@ evt:RegisterEvent("PLAYER_LOGIN")
 evt:RegisterEvent("SPELLS_CHANGED")
 evt:SetScript("OnEvent",function()
   DB:RebuildKnownSpells()
+  DB._iterCache={}
 end)
